@@ -25,10 +25,6 @@ yarn-error.log*
 *.swo
 .DS_Store
 
-# Testing
-coverage/
-.nyc_output/
-
 # Temp files
 tmp/
 temp/
