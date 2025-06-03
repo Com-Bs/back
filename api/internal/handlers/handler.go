@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,19 +18,7 @@ type UserResponse struct {
 	Message  string `json:"message"`
 }
 
-// UserHandler holds the user service
-type UserHandler struct {
-	UserService *model.UserService
-}
-
-// NewUserHandler creates a new user handler
-func NewUserHandler(userService *model.UserService) *UserHandler {
-	return &UserHandler{
-		UserService: userService,
-	}
-}
-
-func (uh *UserHandler) SignUp() http.HandlerFunc {
+func SignUp(db *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Validate HTTP method
 		if r.Method != http.MethodPost {
@@ -51,7 +40,8 @@ func (uh *UserHandler) SignUp() http.HandlerFunc {
 		}
 
 		ctx := context.Background()
-		createdUser, err := uh.UserService.CreateUser(ctx, user.Username, user.Email, user.Password)
+		userService := model.NewUserService(db)
+		createdUser, err := userService.CreateUser(ctx, user.Username, user.Email, user.Password)
 		if err != nil {
 			log.Printf("Failed to create user: %v", err)
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
@@ -71,7 +61,7 @@ func (uh *UserHandler) SignUp() http.HandlerFunc {
 	}
 }
 
-func (uh *UserHandler) LogIn() http.HandlerFunc {
+func LogIn(db *mongo.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Validate HTTP method
 		if r.Method != http.MethodPost {
@@ -93,7 +83,8 @@ func (uh *UserHandler) LogIn() http.HandlerFunc {
 		}
 
 		ctx := context.Background()
-		dbUser, err := uh.UserService.GetUserByUsername(ctx, user.Username)
+		userService := model.NewUserService(db)
+		dbUser, err := userService.GetUserByUsername(ctx, user.Username)
 		if err != nil {
 			http.Error(w, "User not found", http.StatusUnauthorized)
 			return

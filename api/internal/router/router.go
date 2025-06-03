@@ -3,7 +3,6 @@ package router
 import (
 	handler "learning_go/internal/handlers"
 	"learning_go/internal/middleware"
-	model "learning_go/internal/models"
 	"net/http"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,17 +19,11 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 func NewWithDB(db *mongo.Database) http.Handler {
 	r := http.NewServeMux()
 
-	// Create user service and handler
-	userService := model.NewUserService(db)
-	userHandler := handler.NewUserHandler(userService)
-
-	log.
-
-		// Signup route - POST method for user registration
-		r.Handle("POST /signUp", userHandler.SignUp())
+	// Signup route - POST method for user registration
+	r.Handle("POST /signUp", handler.SignUp(db))
 
 	// Login route - POST method for authentication
-	r.Handle("POST /logIn", userHandler.LogIn())
+	r.Handle("POST /logIn", handler.LogIn(db))
 
 	// Protected routes that require authentication
 	// GET method for retrieving logs
