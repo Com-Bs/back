@@ -12,22 +12,6 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
-    networks:
-      - compis_network
-
-  api:
-    build: .
-    container_name: compis_api
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      - MONGO_URI=mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=admin
-      - PORT=8080
-    depends_on:
-      - mongodb
-    networks:
-      - compis_network
 
 volumes:
   mongodb_data:
