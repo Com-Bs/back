@@ -3,7 +3,10 @@ package router
 import (
 	handler "learning_go/internal/handlers"
 	"learning_go/internal/middleware"
+	model "learning_go/internal/models"
 	"net/http"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Chain applies middlewares to a handler in the correct order
@@ -14,24 +17,31 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-func New() http.Handler {
+func NewWithDB(db *mongo.Database) http.Handler {
 	r := http.NewServeMux()
 
-	// Signup route - allows new users to register
-	r.Handle("/signUp", handler.SignUp())
+	// Create user service and handler
+	userService := model.NewUserService(db)
+	userHandler := handler.NewUserHandler(userService)
 
-	// Login route - JWT creation handled directly in handler
-	r.Handle("/logIn", handler.LogIn())
+	log.
+
+		// Signup route - POST method for user registration
+		r.Handle("POST /signUp", userHandler.SignUp())
+
+	// Login route - POST method for authentication
+	r.Handle("POST /logIn", userHandler.LogIn())
 
 	// Protected routes that require authentication
-	r.Handle("/logs", Chain(
+	// GET method for retrieving logs
+	r.Handle("GET /logs", Chain(
 		handler.GetLogs(),
 		middleware.AuthenticateMiddleware,    // Verifies JWT token
 		middleware.DBLoggingMiddleware("DB"), // Logs the request
 	))
 
-	// Compile route with authentication and logging
-	r.Handle("/compile", Chain(
+	// POST method for code compilation
+	r.Handle("POST /compile", Chain(
 		handler.GetFullCompile(),
 		middleware.AuthenticateMiddleware,    // Verifies JWT token
 		middleware.DBLoggingMiddleware("DB"), // Logs the request
