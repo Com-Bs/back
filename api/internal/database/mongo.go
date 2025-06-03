@@ -20,6 +20,7 @@ type MongoDB struct {
 func NewMongoDB(ctx context.Context) (*MongoDB, error) {
 	// Get MongoDB URI from environment variable or use default
 	uri := os.Getenv("MONGO_URI")
+	log.Println("MongoDB URI:", uri)
 	if uri == "" {
 		// Default connection string for local development
 		uri = "mongodb://admin:changeme123@localhost:27017/compis?authSource=admin"
@@ -29,7 +30,7 @@ func NewMongoDB(ctx context.Context) (*MongoDB, error) {
 	clientOptions := options.Client().ApplyURI(uri)
 	
 	// Set connection timeout
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	// Connect to MongoDB
