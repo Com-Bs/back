@@ -6,27 +6,36 @@ import (
 	"net/http"
 )
 
-func New() *http.ServeMux {
-	r := http.NewServeMux()
-
-	// and from right to left after the request
-	r.Handle("/api/compile", Chain(
-		// First: Authentication (pre-request check)
-		middleware.AuthenticateMiddleware,
-		// Second: Logging (pre-request setup and post-request logging)
-		middleware.DBLoggingMiddleware("DB"),
-	)(handler.GetLogs()))
-
-	return r
+// Chain applies middlewares to a handler in the correct order
+func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		h = middlewares[i](h)
+	}
+	return h
 }
 
-type Middleware func(http.Handler) http.Handler
+func New() http.Handler {
+	r := http.NewServeMux()
 
-func Chain(middlewares ...Middleware) func(http.Handler) http.Handler {
-	return func(handler http.Handler) http.Handler {
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			handler = middlewares[i](handler)
-		}
-		return handler
-	}
+	// Signup route - allows new users to register
+	r.Handle("/signUp", handler.SignUp())
+
+	// Login route - JWT creation handled directly in handler
+	r.Handle("/logIn", handler.LogIn())
+
+	// Protected routes that require authentication
+	r.Handle("/logs", Chain(
+		handler.GetLogs(),
+		middleware.AuthenticateMiddleware,    // Verifies JWT token
+		middleware.DBLoggingMiddleware("DB"), // Logs the request
+	))
+
+	// Compile route with authentication and logging
+	r.Handle("/compile", Chain(
+		handler.GetFullCompile(),
+		middleware.AuthenticateMiddleware,    // Verifies JWT token
+		middleware.DBLoggingMiddleware("DB"), // Logs the request
+	))
+
+	return r
 }
