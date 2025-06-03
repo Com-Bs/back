@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"learning_go/internal/database"
-	"learning_go/internal/router"
 	"log"
 	"net/http"
 	"os"
@@ -36,12 +35,11 @@ func main() {
 	}()
 
 	// Create router with database connection
-	r := router.NewWithDB(db)
+	//r := router.NewWithDB(db)
 
 	// Start server
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: r,
+		Addr: ":8080",
 	}
 
 	// Start server in goroutine
