@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"learning_go/internal/auth"
 	"log"
 	"net/http"
 	"time"
@@ -25,6 +26,11 @@ type RequestLog struct {
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 // DBLoggingMiddleware returns a middleware that logs HTTP requests to a database
@@ -67,13 +73,30 @@ func DBLoggingMiddleware(db string) func(http.Handler) http.Handler {
 // AuthenticateMiddleware returns a middleware that handles authentication
 func AuthenticateMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Pre-request: Check authentication
-		// TODO: Implement actual authentication logic
+		// For login endpoint, we don't need to verify the token
+		if r.URL.Path == "/logIn" {
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		// Execute the next handler
+		// Get the Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract the token from the Authorization header
+		// Format: "Bearer <token>"
+		tokenString := authHeader[7:] // Remove "Bearer " prefix
+
+		// Verify the token
+		if err := auth.VerifyToken(tokenString); err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Token is valid, proceed to the next handler
 		next.ServeHTTP(w, r)
-
-		// Post-request: Clean up or additional operations
-		// TODO: Add any post-authentication operations
 	})
 }
