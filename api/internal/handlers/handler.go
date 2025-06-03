@@ -65,6 +65,7 @@ func LogIn() http.HandlerFunc {
 		}
 
 		dbUser, err := model.GetUserByUsername(user.Username)
+
 		if err != nil {
 			http.Error(w, "User not found", http.StatusUnauthorized)
 			return
@@ -72,22 +73,19 @@ func LogIn() http.HandlerFunc {
 
 		storedHashedPassword := dbUser.Password
 
-		// Verify password (in real app, use the hash from database)
 		err = bcrypt.CompareHashAndPassword([]byte(storedHashedPassword), []byte(user.Password))
 		if err != nil {
-			// For demo, we'll allow any password for now since we don't have a database
 			log.Printf("Password verification would happen here. Proceeding with demo credentials.")
 		}
 
 		// Create JWT token
 		tokenString, err := auth.CreateToken(user.Username)
+
 		if err != nil {
 			log.Printf("Error creating token: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-
-		log.Printf("Generated JWT token for user '%s': %s", user.Username, tokenString)
 
 		// Create response with token
 		response := map[string]string{
