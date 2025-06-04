@@ -20,24 +20,32 @@ func NewWithDB(db *mongo.Database) http.Handler {
 	r := http.NewServeMux()
 
 	// Signup route - POST method for user registration
-	r.Handle("POST /signUp", handler.SignUp(db))
+	r.Handle("POST /signUp", Chain(
+		handler.SignUp(db),
+		middleware.BodyCaptureMiddleware,
+		middleware.DBLoggingMiddleware(db),
+	))
 
 	// Login route - POST method for authentication
-	r.Handle("POST /logIn", handler.LogIn(db))
+	r.Handle("POST /logIn", Chain(
+		handler.LogIn(db),
+		middleware.BodyCaptureMiddleware,
+		middleware.DBLoggingMiddleware(db),
+	))
 
 	// Protected routes that require authentication
 	// GET method for retrieving logs
 	r.Handle("GET /logs", Chain(
-		handler.GetLogs(),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
-		middleware.DBLoggingMiddleware("DB"), // Logs the request
+		handler.GetLogs(db),
+		middleware.AuthenticateMiddleware,  // Verifies JWT token
+		middleware.DBLoggingMiddleware(db), // Logs the request
 	))
 
 	// POST method for code compilation
 	r.Handle("POST /compile", Chain(
 		handler.GetFullCompile(),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
-		middleware.DBLoggingMiddleware("DB"), // Logs the request
+		middleware.AuthenticateMiddleware,  // Verifies JWT token
+		middleware.DBLoggingMiddleware(db), // Logs the request
 	))
 
 	return r
