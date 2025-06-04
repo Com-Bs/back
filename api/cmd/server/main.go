@@ -50,14 +50,14 @@ func main() {
 
 	// Start server
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":8443", // Changed port to standard HTTPS port
 		Handler: r,
 	}
 
 	// Start server in goroutine
 	go func() {
-		log.Println("Starting server on :8080")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Println("Starting HTTPS server on :8443")
+		if err := srv.ListenAndServeTLS("certs/server.crt", "certs/server.key"); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
 	}()
