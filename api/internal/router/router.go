@@ -48,5 +48,18 @@ func NewWithDB(db *mongo.Database) http.Handler {
 		middleware.DBLoggingMiddleware(db), // Logs the request
 	))
 
+	// Problem routes
+	// GET method for retrieving all problems
+	r.Handle("GET /problems", Chain(
+		handler.GetAllProblems(db),
+		middleware.AuthenticateMiddleware,    // Verifies JWT token
+	))
+	
+	// GET method for retrieving a specific problem by ID
+	r.Handle("GET /problems/{id}", Chain(
+		handler.GetProblemByID(db),
+		middleware.AuthenticateMiddleware,    // Verifies JWT token
+	))
+
 	return r
 }
