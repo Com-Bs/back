@@ -11,20 +11,20 @@ import (
 
 type Problem struct {
 	// A problem has a title, a description (contains examples), a difficulty, hints and several test cases (each test case has an input and an output)
-	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Title     string             `json:"title" bson:"title"`
+	ID    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Title string             `json:"title" bson:"title"`
 	// Description is a markdown string that contains examples
-	Description string             `json:"description" bson:"description"`
+	Description string `json:"description" bson:"description"`
 	// Difficulty is an enum that represents the difficulty of the problem
-	Difficulty string             `json:"difficulty" bson:"difficulty"`
+	Difficulty string `json:"difficulty" bson:"difficulty"`
 	// Hints is a list of strings that contains hints for the problem
-	Hints     []string             `json:"hints" bson:"hints"`
+	Hints []string `json:"hints" bson:"hints"`
 	// TestCases is a list of test cases
-	TestCases []TestCase             `json:"test_cases" bson:"test_cases"`
+	TestCases []TestCase `json:"test_cases" bson:"test_cases"`
 	// CreatedAt is the date and time the problem was created
-	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 	// UpdatedAt is the date and time the problem was last updated
-	UpdatedAt time.Time          `json:"updated_at" bson:"updated_at"`
+	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }
 
 type TestCase struct {
@@ -42,10 +42,9 @@ func NewProblemService(db *mongo.Database) *ProblemService {
 	return &ProblemService{Collection: db.Collection("problems")}
 }
 
+// Usar un singleton para crear las instancias en la base de datos. Creamos un servicio, y al inicializar el api inicializamos el servicio.
 
-	// Usar un singleton para crear las instancias en la base de datos. Creamos un servicio, y al inicializar el api inicializamos el servicio.
-
-	// Definimos CRUD para problemas
+// Definimos CRUD para problemas
 
 // GetProblem retrieves a problem by its ID from the database
 func (ps *ProblemService) GetProblemByID(ctx context.Context, id string) (*Problem, error) {
@@ -67,11 +66,10 @@ func (ps *ProblemService) GetAllProblems(ctx context.Context) ([]*Problem, error
 		return nil, err
 	}
 	defer cursor.Close(ctx)
-	
+
 	var problems []*Problem
 	if err = cursor.All(ctx, &problems); err != nil {
 		return nil, err
 	}
 	return problems, nil
 }
-

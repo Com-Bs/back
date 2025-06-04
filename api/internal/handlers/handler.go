@@ -204,8 +204,12 @@ func GetFullCompile() http.HandlerFunc {
 		// Create HTTP client
 		client := &http.Client{}
 
+		log.Printf("Cache miss for compile request: %s", hashStr)
+
 		// Create request to compile service with the body
-		req, err := http.NewRequest("POST", "http://172.16.30.3:3001/runCompile", bytes.NewBuffer(body))
+
+		req, err := http.NewRequest("POST", "http://10.49.12.48:3001/runCompile", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
