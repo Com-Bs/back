@@ -116,3 +116,27 @@ func (ls *LogsService) GetLogByHash(ctx context.Context, hash string) (*Logs, er
 	}
 	return &log, nil
 }
+
+func (ls *LogsService) GetLogByProblemID(ctx context.Context, id string, userID string) (*Logs, error) {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var log Logs
+	filter := primitive.M{
+		"problem": objectID,
+		"user":    userID,
+	}
+
+	err = ls.Collection.FindOne(ctx, filter).Decode(&log)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &log, nil
+}

@@ -11,18 +11,18 @@ import (
 )
 
 type ProblemResponse struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Description string `json:"description"`
-	Difficulty string `json:"difficulty"`
-	Hints     []string `json:"hints"`
-	TestCases []TestCase `json:"test_cases"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Difficulty  string     `json:"difficulty"`
+	Hints       []string   `json:"hints"`
+	TestCases   []TestCase `json:"test_cases"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type TestCase struct {
-	Input string `json:"input"`
+	Input  string `json:"input"`
 	Output string `json:"output"`
 }
 
@@ -43,7 +43,7 @@ func GetProblemByID(db *mongo.Database) http.HandlerFunc {
 
 		// Initialize problem service
 		problemService := model.NewProblemService(db)
-		
+
 		// Get problem from database
 		problem, err := problemService.GetProblemByID(context.Background(), id)
 		if err != nil {
@@ -77,7 +77,7 @@ func GetAllProblems(db *mongo.Database) http.HandlerFunc {
 
 		// Initialize problem service
 		problemService := model.NewProblemService(db)
-		
+
 		// Get all problems from database
 		problems, err := problemService.GetAllProblems(context.Background())
 		if err != nil {

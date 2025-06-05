@@ -138,33 +138,3 @@ func LogIn(db *mongo.Database) http.HandlerFunc {
 		json.NewEncoder(w).Encode(response)
 	}
 }
-
-// Default GET function
-func GetLogs(db *mongo.Database) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate HTTP method
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		logService := model.NewLogsService(db)
-		logs, err := logService.GetAllLogs(ctx)
-
-		if err != nil {
-			log.Printf("Failed to retrieve logs: %v", err)
-			http.Error(w, "Failed to retrieve logs", http.StatusInternalServerError)
-			return
-		}
-		if len(logs) == 0 {
-			http.Error(w, "No logs found", http.StatusNotFound)
-			return
-		}
-
-		// Set content type and send response
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(logs)
-
-		w.WriteHeader(http.StatusOK)
-	}
-}

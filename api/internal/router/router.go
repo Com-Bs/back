@@ -61,5 +61,9 @@ func NewWithDB(db *mongo.Database) http.Handler {
 		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 
+	r.Handle("Get /problems/{id}/historic", Chain(
+		handler.GetAllLogsByProblemAndUser(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
+	))
 	return r
 }
