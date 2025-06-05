@@ -17,16 +17,19 @@ type Problem struct {
 	Description string `json:"description" bson:"description"`
 	// Difficulty is an enum that represents the difficulty of the problem
 	Difficulty string `json:"difficulty" bson:"difficulty"`
-	// Hints is a list of strings that contains hints for the problem
-	Hints []string `json:"hints" bson:"hints"`
 	// TestCases is a list of test cases
 	TestCases []int `json:"test_cases" bson:"test_cases"`
 	// CreatedAt is the date and time the problem was created
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
-	// UpdatedAt is the date and time the problem was last updated
-	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
-	// AuthorID is the ID of the user who created the problem
+	// Name Func is the name of the function that solves the problem
 	NameFunc string `json:"author_id" bson:"author_id"`
+	// Hints is a list of hints for the problem
+	Params []string `json:"hints" bson:"hints"`
+}
+
+type ParamType struct {
+	Name string `json:"name" bson:"name"`
+	Type string `json:"type" bson:"type"` // e.g., "int", "string", "float"
 }
 
 type ProblemService struct {

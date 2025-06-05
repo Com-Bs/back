@@ -14,12 +14,18 @@ import (
 
 // User represents a user in the database
 type User struct {
-	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Username  string             `json:"username" bson:"username"`
-	Password  string             `json:"password" bson:"password"` // This will store the hashed password
-	Email     string             `json:"email" bson:"email"`
-	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at" bson:"updated_at"`
+	// ID is the unique identifier for the user
+	ID primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	// Username is the unique username for the user
+	Username string `json:"username" bson:"username"`
+	// Password is the hashed password for the user
+	Password string `json:"password" bson:"password"`
+	// Email is the email address of the user
+	Email string `json:"email" bson:"email"`
+	// CreatedAt is the timestamp when the user was created
+	CreatedAt time.Time `json:"created_at" bson:"created_at"`
+	// UpdatedAt is the timestamp when the user was last updated
+	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }
 
 // UserService handles user operations with the database

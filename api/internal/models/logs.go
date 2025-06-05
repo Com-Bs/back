@@ -10,17 +10,27 @@ import (
 )
 
 type Logs struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
-	UserID         *string            `bson:"user_id,omitempty"`
-	Method         string             `bson:"method"`
-	Path           string             `bson:"path"`
-	ResponseStatus int                `bson:"status"`
-	Duration       time.Duration      `bson:"duration"`
-	Body           string             `bson:"body"`
-	Problem        primitive.ObjectID `bson:"case,omitempty"` // Optional field for the case
-	Success        bool               `bson:"success"`
-	IP             string             `bson:"ip"`
-	CreatedAt      time.Time          `bson:"created_at"`
+	// ID is the unique identifier for the log entry
+	ID primitive.ObjectID `bson:"_id,omitempty"`
+	// UserID is the ID of the user associated with the log entry
+	UserID *string `bson:"user_id,omitempty"`
+	// Method is the HTTP method used in the request (e.g., GET, POST)
+	Method string `bson:"method"`
+	// Path is the URL path of the request
+	Path string `bson:"path"`
+	// Query is the query parameters of the request
+	ResponseStatus int `bson:"status"`
+	// ResponseStatus is the HTTP status code returned in the response
+	Duration time.Duration `bson:"duration"`
+	// Duration is the time taken to process the request
+	Body string `bson:"body"`
+	// Body is the request body, typically a JSON string
+	Problem primitive.ObjectID `bson:"case,omitempty"`
+	// Problem is the ID of the problem associated with the log entry
+	IP string `bson:"ip"`
+	// IP is the IP address of the user making the request
+	CreatedAt time.Time `bson:"created_at"`
+	// CreatedAt is the timestamp when the log entry was created
 }
 
 type LogsService struct {
