@@ -1,43 +1,174 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"learning_go/internal/auth"
+	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // User represents a user in the database
 type User struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Password string `json:"password"` // This will store the hashed password
+	// ID is the unique identifier for the user
+	ID primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	// Username is the unique username for the user
+	Username string `json:"username" bson:"username"`
+	// Password is the hashed password for the user
+	Password string `json:"password" bson:"password"`
+	// Email is the email address of the user
+	Email string `json:"email" bson:"email"`
+	// CreatedAt is the timestamp when the user was created
+	CreatedAt time.Time `json:"created_at" bson:"created_at"`
+	// UpdatedAt is the timestamp when the user was last updated
+	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
+}
+
+// UserService handles user operations with the database
+type UserService struct {
+	Collection *mongo.Collection
+}
+
+// NewUserService creates a new user service
+func NewUserService(db *mongo.Database) *UserService {
+	return &UserService{
+		Collection: db.Collection("users"),
+	}
 }
 
 // CreateUser stores a new user in the database
-func CreateUser(username, password string) bool {
+func (us *UserService) CreateUser(ctx context.Context, username, email, password string) (*User, error) {
 	// Hash the password
-	_, err := auth.HashPassword(password)
-
-	return err == nil
-}
-
-// GetUserByUsername retrieves a user by username
-func GetUserByUsername(username string) (User, error) {
-	// Simulate a database lookup
-	user := User{
-		ID:       1,
-		Username: username,
-		Password: "$2a$10$EIX/5Z1z5Q8e1b7f9j3u6O0k5F4y5Z1z5Q8e1b7f9j3u6O0k5F4y5Z", // Example hashed password
+	hashedPassword, err := auth.HashPassword(password)
+	if err != nil {
+		return nil, err
 	}
 
+	// Check if user already exists
+	existingUser, _ := us.GetUserByUsername(ctx, username)
+	if existingUser != nil {
+		return nil, errors.New("user already exists")
+	}
+
+	user := &User{
+		Username:  username,
+		Email:     email,
+		Password:  hashedPassword,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Insert user into database
+	result, err := us.Collection.InsertOne(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the ID from the insert result
+	user.ID = result.InsertedID.(primitive.ObjectID)
 	return user, nil
 }
 
-// ValidateUserPassword validates a user's password
-func ValidateUserPassword(username, password string) (bool, error) {
-	user, err := GetUserByUsername(username)
+// GetUserByUsername retrieves a user by username
+func (us *UserService) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	var user User
+	filter := bson.M{"username": username}
 
+	err := us.Collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetUserByID retrieves a user by ID
+func (us *UserService) GetUserByID(ctx context.Context, id string) (*User, error) {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, errors.New("invalid user ID")
+	}
+
+	var user User
+	filter := bson.M{"_id": objectID}
+
+	err = us.Collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetAllUsers retrieves all users from the database
+func (us *UserService) GetAllUsers(ctx context.Context) ([]*User, error) {
+	cursor, err := us.Collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*User
+	for cursor.Next(ctx) {
+		var user User
+		if err := cursor.Decode(&user); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// UpdateUser updates an existing user
+func (us *UserService) UpdateUser(ctx context.Context, id string, updates bson.M) (*User, error) {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, errors.New("invalid user ID")
+	}
+
+	updates["updated_at"] = time.Now()
+	filter := bson.M{"_id": objectID}
+	update := bson.M{"$set": updates}
+
+	_, err = us.Collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the updated user
+	return us.GetUserByID(ctx, id)
+}
+
+// DeleteUser deletes a user from the database
+func (us *UserService) DeleteUser(ctx context.Context, id string) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("invalid user ID")
+	}
+
+	filter := bson.M{"_id": objectID}
+	_, err = us.Collection.DeleteOne(ctx, filter)
+	return err
+}
+
+// ValidateUserPassword validates a user's password
+func (us *UserService) ValidateUserPassword(ctx context.Context, username, password string) (bool, error) {
+	user, err := us.GetUserByUsername(ctx, username)
 	if err != nil {
 		return false, err
 	}

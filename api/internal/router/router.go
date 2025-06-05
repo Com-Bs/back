@@ -4,6 +4,8 @@ import (
 	handler "learning_go/internal/handlers"
 	"learning_go/internal/middleware"
 	"net/http"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Chain applies middlewares to a handler in the correct order
@@ -14,27 +16,56 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-func New() http.Handler {
+func NewWithDB(db *mongo.Database) http.Handler {
 	r := http.NewServeMux()
 
-	// Signup route - allows new users to register
-	r.Handle("/signUp", handler.SignUp())
-
-	// Login route - JWT creation handled directly in handler
-	r.Handle("/logIn", handler.LogIn())
-
-	// Protected routes that require authentication
-	r.Handle("/logs", Chain(
-		handler.GetLogs(),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
-		middleware.DBLoggingMiddleware("DB"), // Logs the request
+	// Signup route - POST method for user registration
+	r.Handle("POST /signUp", Chain(
+		handler.SignUp(db),
+		middleware.BodyCaptureMiddleware,
+		middleware.DBLoggingMiddleware(db),
 	))
 
-	// Compile route with authentication and logging
-	r.Handle("/compile", Chain(
-		handler.GetFullCompile(),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
-		middleware.DBLoggingMiddleware("DB"), // Logs the request
+	// Login route - POST method for authentication
+	r.Handle("POST /logIn", Chain(
+		handler.LogIn(db),
+		middleware.BodyCaptureMiddleware,
+		middleware.DBLoggingMiddleware(db),
+	))
+
+	// Protected routes that require authentication
+	// GET method for retrieving logs
+	r.Handle("GET /logs", Chain(
+		handler.GetLogs(db),
+		middleware.AuthenticateMiddleware,  // Verifies JWT token
+		middleware.DBLoggingMiddleware(db), // Logs the request
+	))
+
+	// POST method for code compilation
+	r.Handle("POST /compile", Chain(
+		handler.GetFullCompile(db),
+		middleware.AuthenticateMiddleware,        // Verifies JWT token
+		middleware.RepeatedRequestMiddleware(db), // Captures request body
+		middleware.DBLoggingMiddleware(db),       // Logs the request
+	))
+
+	// Problem routes
+	// GET method for retrieving all problems
+	r.Handle("GET /problems", Chain(
+		handler.GetAllProblems(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
+	))
+
+	// GET method for retrieving a specific problem by ID
+	r.Handle("GET /problems/{id}", Chain(
+		handler.GetProblemByID(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
+	))
+
+	// GET method for retrieving user's solutions for a specific problem
+	r.Handle("GET /problems/{id}/solutions", Chain(
+		handler.GetUserSolutions(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 
 	return r
