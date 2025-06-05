@@ -20,18 +20,13 @@ type Problem struct {
 	// Hints is a list of strings that contains hints for the problem
 	Hints []string `json:"hints" bson:"hints"`
 	// TestCases is a list of test cases
-	TestCases []TestCase `json:"test_cases" bson:"test_cases"`
+	TestCases []int `json:"test_cases" bson:"test_cases"`
 	// CreatedAt is the date and time the problem was created
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 	// UpdatedAt is the date and time the problem was last updated
 	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
-}
-
-type TestCase struct {
-	// Input is a string that contains the input for the test case
-	Input string `json:"input" bson:"input"`
-	// Output is a string that contains the output for the test case
-	Output string `json:"output" bson:"output"`
+	// AuthorID is the ID of the user who created the problem
+	NameFunc string `json:"author_id" bson:"author_id"`
 }
 
 type ProblemService struct {

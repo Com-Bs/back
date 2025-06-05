@@ -1,12 +1,8 @@
 package handler
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"io"
 	"learning_go/internal/auth"
 	"learning_go/internal/cache"
 	model "learning_go/internal/models"
@@ -20,9 +16,11 @@ import (
 
 // UserResponse represents the response after successful signup
 type UserResponse struct {
-	Username string `json:"username"`
-	Message  string `json:"message"`
+	Message string `json:"message"`
+	Token   string `json:"token"`
 }
+
+var ctx = context.Background()
 
 var compileCache = cache.NewCompileCache(24 * time.Hour)
 
@@ -36,30 +34,44 @@ func SignUp(db *mongo.Database) http.HandlerFunc {
 
 		// Parse JSON request body
 		var user model.User
+
+		log.Printf("Received request to create user: %s", r.Body)
+
 		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			log.Printf("Error decoding JSON: %v", err)
 			http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 			return
 		}
 
 		// Validate input
-		if user.Username == "" || user.Password == "" {
+		if user.Username == "" || user.Password == "" || user.Email == "" {
 			http.Error(w, "Username and password are required", http.StatusBadRequest)
 			return
 		}
 
-		ctx := context.Background()
 		userService := model.NewUserService(db)
 		createdUser, err := userService.CreateUser(ctx, user.Username, user.Email, user.Password)
 		if err != nil {
+			if err.Error() == "user already exists" {
+				log.Printf("User already exists: %s", user.Username)
+				http.Error(w, "User already exists", http.StatusConflict)
+				return
+			}
 			log.Printf("Failed to create user: %v", err)
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
 			return
 		}
 
 		// Create response
+		token, err := auth.CreateToken(createdUser.Username)
+		if err != nil {
+			log.Printf("Error creating token: %v", err)
+			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			return
+		}
 		response := UserResponse{
-			Username: createdUser.Username,
-			Message:  "User created successfully",
+			Message: "User created successfully",
+			Token:   token,
 		}
 
 		// Set content type and send response
@@ -90,7 +102,6 @@ func LogIn(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		ctx := context.Background()
 		userService := model.NewUserService(db)
 		dbUser, err := userService.GetUserByUsername(ctx, user.Username)
 		if err != nil {
@@ -117,8 +128,8 @@ func LogIn(db *mongo.Database) http.HandlerFunc {
 
 		// Create response with token
 		response := map[string]string{
-			"token":   tokenString,
 			"message": "Login successful",
+			"token":   tokenString,
 		}
 
 		// Set content type and send response
@@ -137,7 +148,6 @@ func GetLogs(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		ctx := context.Background()
 		logService := model.NewLogsService(db)
 		logs, err := logService.GetAllLogs(ctx)
 
@@ -168,79 +178,5 @@ func CreateLogs(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-	}
-}
-
-// GetFullCompile handles code compilation requests with caching
-func GetFullCompile() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate HTTP method
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// Read request body
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
-			return
-		}
-		defer r.Body.Close()
-
-		// Create hash of request body for caching
-		hash := sha256.Sum256(body)
-		hashStr := hex.EncodeToString(hash[:])
-
-		// Check cache first
-		if cached, exists := compileCache.Get(hashStr); exists {
-			log.Printf("Cache hit for compile request: %s", hashStr)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(cached.StatusCode)
-			w.Write(cached.ResponseBody)
-			return
-		}
-
-		// Create HTTP client
-		client := &http.Client{}
-
-		log.Printf("Cache miss for compile request: %s", hashStr)
-
-		// Create request to compile service with the body
-
-		req, err := http.NewRequest("POST", "http://10.49.12.48:3001/runCompile", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		if err != nil {
-			http.Error(w, "Failed to create request", http.StatusInternalServerError)
-			return
-		}
-
-		// Send request
-		resp, err := client.Do(req)
-		if err != nil {
-			http.Error(w, "Failed to send request", http.StatusInternalServerError)
-			return
-		}
-		defer resp.Body.Close()
-
-		// Read response body
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			http.Error(w, "Failed to read response", http.StatusInternalServerError)
-			return
-		}
-
-		// Cache successful responses
-		if resp.StatusCode == http.StatusOK {
-			compileCache.Set(hashStr, respBody, resp.StatusCode)
-			log.Printf("Cached compile response for request: %s", hashStr)
-		}
-
-		// Set response headers
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(resp.StatusCode)
-
-		// Write response back to client
-		w.Write(respBody)
 	}
 }

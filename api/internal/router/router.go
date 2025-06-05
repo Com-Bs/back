@@ -43,7 +43,7 @@ func NewWithDB(db *mongo.Database) http.Handler {
 
 	// POST method for code compilation
 	r.Handle("POST /compile", Chain(
-		handler.GetFullCompile(),
+		handler.GetFullCompile(db),
 		middleware.AuthenticateMiddleware,  // Verifies JWT token
 		middleware.DBLoggingMiddleware(db), // Logs the request
 	))
@@ -52,13 +52,13 @@ func NewWithDB(db *mongo.Database) http.Handler {
 	// GET method for retrieving all problems
 	r.Handle("GET /problems", Chain(
 		handler.GetAllProblems(db),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
+		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
-	
+
 	// GET method for retrieving a specific problem by ID
 	r.Handle("GET /problems/{id}", Chain(
 		handler.GetProblemByID(db),
-		middleware.AuthenticateMiddleware,    // Verifies JWT token
+		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 
 	return r

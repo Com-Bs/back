@@ -16,6 +16,9 @@ type Logs struct {
 	Path           string             `bson:"path"`
 	ResponseStatus int                `bson:"status"`
 	Duration       time.Duration      `bson:"duration"`
+	Body           string             `bson:"body"`
+	Problem        primitive.ObjectID `bson:"case,omitempty"` // Optional field for the case
+	Success        bool               `bson:"success"`
 	IP             string             `bson:"ip"`
 	CreatedAt      time.Time          `bson:"created_at"`
 }

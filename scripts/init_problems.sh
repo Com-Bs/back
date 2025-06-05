@@ -60,10 +60,10 @@ db.problems.insertOne({
     "Use if-else statement for conditional logic"
   ],
   test_cases: [
-    { input: "4", output: "Even" },
-    { input: "7", output: "Odd" },
-    { input: "0", output: "Even" },
-    { input: "1", output: "Odd" }
+    { input: "4", output: "2" },
+    { input: "7", output: "1" },
+    { input: "0", output: "2" },
+    { input: "1", output: "1" }
   ],
   created_at: new Date(),
   updated_at: new Date()
@@ -140,11 +140,11 @@ db.problems.insertOne({
     "Handle special cases: numbers <= 1 are not prime"
   ],
   test_cases: [
-    { input: "7", output: "Prime" },
-    { input: "8", output: "Not Prime" },
-    { input: "2", output: "Prime" },
-    { input: "1", output: "Not Prime" },
-    { input: "17", output: "Prime" }
+    { input: "7", output: "1" },
+    { input: "8", output: "0" },
+    { input: "2", output: "1" },
+    { input: "1", output: "0" },
+    { input: "17", output: "1" }
   ],
   created_at: new Date(),
   updated_at: new Date()
