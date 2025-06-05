@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	model "learning_go/internal/models"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -20,8 +23,9 @@ type compileBody struct {
 }
 
 type compileRequest struct {
-	Code      string `json:"code"`
-	TestCases []int  `json:"cases"`
+	Program   string      `json:"program"`
+	FunName   string      `json:"funName"`
+	TestCases [][]interface{} `json:"testCases"`
 }
 
 // GetFullCompile handles code compilation requests with caching
@@ -56,6 +60,8 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
+		log.Printf("Cache miss for compile request: %s", hashStr)
+
 		problemService := model.NewProblemService(db)
 		problem, err := problemService.GetProblemByID(ctx, body.ID)
 
@@ -65,16 +71,36 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		// Create compile request body
-		compileReq := compileRequest{
-			Code:      body.Code,
-			TestCases: problem.TestCases,
+		// Transform test cases to the expected format (inputs only)
+		var transformedTestCases [][]interface{}
+		for _, testCase := range problem.TestCases {
+			// Parse input string into individual parameters
+			inputs := strings.Fields(testCase.Input)
+			var inputParams []interface{}
+			for _, input := range inputs {
+				if val, err := strconv.Atoi(input); err == nil {
+					inputParams = append(inputParams, val)
+				} else {
+					inputParams = append(inputParams, input)
+				}
+			}
+			
+			// Create test case with just inputs (no expected output)
+			transformedTestCases = append(transformedTestCases, inputParams)
 		}
 
-		// Create HTTP client
-		client := &http.Client{}
+		// Create compile request body
+		compileReq := compileRequest{
+			Program:   body.Code,
+			FunName:   problem.FunctionName,
+			TestCases: transformedTestCases,
+		}
 
-		log.Printf("Cache miss for compile request: %s", hashStr)
+		// Create HTTP client with TLS config to skip certificate verification
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: tr}
 
 		// Create request to compile service with the body
 		compileReqBytes, err := json.Marshal(compileReq)
@@ -83,7 +109,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		req, err := http.NewRequest("POST", "http://10.49.12.48:3001/runCompile", bytes.NewBuffer(compileReqBytes))
+		req, err := http.NewRequest("POST", "https://10.49.12.48:3001/runCompile", bytes.NewBuffer(compileReqBytes))
 		req.Header.Set("Content-Type", "application/json")
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
@@ -93,7 +119,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		// Send request
 		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, "Failed to send request", http.StatusInternalServerError)
+			http.Error(w, "Compile service unavailable", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -107,10 +133,11 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 
 		var response struct {
-			Output []int `json:"output"`
-			Error  int   `json:"error"`
-			Line   int   `json:"line"`
-			Column int   `json:"column"`
+			Outputs []int  `json:"outputs"`
+			Error   string `json:"error"`
+			Message string `json:"message"`
+			Line    int    `json:"line"`
+			Column  int    `json:"column"`
 		}
 
 		if err := json.Unmarshal(respBody, &response); err != nil {
@@ -119,16 +146,25 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 
 		var structuredResponse model.CompileResponse
-		if response.Error != 0 {
-			log.Printf("Compile service returned an error: %d", response.Error)
+		if response.Error != "" {
+			log.Printf("Compile service returned an error: %s", response.Error)
+			errorMessage := response.Error
+			if response.Message != "" {
+				errorMessage = fmt.Sprintf("%s: %s", response.Error, response.Message)
+			}
 			structuredResponse = model.CompileResponse{
-				Error:  fmt.Sprintf("Compilation error: %d", response.Error),
+				Error:  errorMessage,
 				Line:   response.Line,
 				Column: response.Column,
 				Status: "Error",
 			}
 		} else {
-			structuredResponse = model.GenerateResponse(response.Output, problem.TestCases)
+			// For now, create a simple success response
+			// TODO: Update GenerateResponse to handle TestCase structures
+			structuredResponse = model.CompileResponse{
+				Error:  "",
+				Status: "Success",
+			}
 		}
 
 		// Cache successful responses

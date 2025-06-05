@@ -9,6 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type TestCase struct {
+	Input  string `json:"input" bson:"input"`
+	Output string `json:"output" bson:"output"`
+}
+
 type Problem struct {
 	// A problem has a title, a description (contains examples), a difficulty, hints and several test cases (each test case has an input and an output)
 	ID    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
@@ -18,13 +23,15 @@ type Problem struct {
 	// Difficulty is an enum that represents the difficulty of the problem
 	Difficulty string `json:"difficulty" bson:"difficulty"`
 	// TestCases is a list of test cases
-	TestCases []int `json:"test_cases" bson:"test_cases"`
+	TestCases []TestCase `json:"test_cases" bson:"test_cases"`
+	// Function name for the problem
+	FunctionName string `json:"function_name" bson:"function_name"`
+	// Arguments/parameters for the function
+	Arguments []ParamType `json:"arguments" bson:"arguments"`
 	// CreatedAt is the date and time the problem was created
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
-	// Name Func is the name of the function that solves the problem
-	NameFunc string `json:"author_id" bson:"author_id"`
-	// Hints is a list of hints for the problem
-	Params []string `json:"hints" bson:"hints"`
+	// UpdatedAt is the date and time the problem was last updated
+	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }
 
 type ParamType struct {
