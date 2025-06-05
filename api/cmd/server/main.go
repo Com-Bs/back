@@ -4,14 +4,13 @@ import (
 	"context"
 	"learning_go/internal/database"
 	model "learning_go/internal/models"
+	"learning_go/internal/router"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"learning_go/internal/router"
 
 	"github.com/joho/godotenv"
 )

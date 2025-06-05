@@ -28,7 +28,7 @@ func NewMongoDB(ctx context.Context) (*MongoDB, error) {
 
 	// Set client options
 	clientOptions := options.Client().ApplyURI(uri)
-	
+
 	// Set connection timeout
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
