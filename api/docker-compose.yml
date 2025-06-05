@@ -1,0 +1,54 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: learning_go_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: learning_go_db
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Go API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: learning_go_api
+    restart: unless-stopped
+    environment:
+      MONGO_URI: mongodb://admin:password123@mongodb:27017/learning_go_db?authSource=admin
+      MONGO_DATABASE: learning_go_db
+    ports:
+      - "8443:8443"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      # Mount .env file if it exists
+      - ./.env:/root/.env:ro
+      # Mount certs directory for development (optional)
+      - ./certs:/root/certs:ro
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
