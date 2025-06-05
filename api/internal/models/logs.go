@@ -177,34 +177,38 @@ func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, pr
 			// Parse the compile response to determine actual status
 			var compileResponse struct {
 				Result []struct {
-					Status string `json:"status"`
+					Status         string `json:"status"`
+					Output         []int  `json:"output"`
+					ExpectedOutput []int  `json:"expectedOutput"`
 				} `json:"result"`
 				Status string `json:"status"`
 				Error  string `json:"error"`
+				Line   int    `json:"line"`
+				Column int    `json:"column"`
 			}
 			
 			if err := json.Unmarshal([]byte(logEntry.ResponseBody), &compileResponse); err == nil {
-				// Check if there's a compilation error
+				// Check if there's a compilation error (syntax error, etc.)
 				if compileResponse.Error != "" {
 					solution.Status = "failed"
-				} else if compileResponse.Status == "Error" {
-					solution.Status = "failed"
-				} else if compileResponse.Status == "Success" {
-					// Check if all test cases passed
-					allPassed := true
+				} else {
+					// Count passed and failed test cases
+					passedCount := 0
+					totalCount := len(compileResponse.Result)
+					
 					for _, result := range compileResponse.Result {
-						if result.Status != "Success" {
-							allPassed = false
-							break
+						if result.Status == "Success" {
+							passedCount++
 						}
 					}
-					if allPassed {
+					
+					if passedCount == 0 {
+						solution.Status = "failed"
+					} else if passedCount == totalCount {
 						solution.Status = "passed"
 					} else {
 						solution.Status = "partial"
 					}
-				} else {
-					solution.Status = "partial"
 				}
 			} else {
 				// Default to failed if response parsing fails
