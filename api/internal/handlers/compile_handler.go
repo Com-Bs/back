@@ -46,6 +46,8 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 		defer r.Body.Close()
 
+		log.Printf("Compile endpoint received: ProblemID=%s, Code=%s", body.ID, body.Code)
+
 		// Create hash of request body for caching
 		bodyBytes, _ := json.Marshal(body)
 		hash := sha256.Sum256(bodyBytes)
@@ -116,6 +118,10 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
+		// Print request details for debugging
+		log.Printf("Sending compile request to service: %s", req.URL.String())
+		log.Printf("Compile request body: %s", compileReqBytes)
+
 		// Send request
 		resp, err := client.Do(req)
 		if err != nil {
@@ -164,6 +170,8 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			structuredResponse = model.CompileResponse{
 				Error:  "",
 				Status: "Success",
+				Line:   response.Line,
+				Column: response.Column,
 			}
 		}
 
@@ -178,6 +186,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		w.WriteHeader(resp.StatusCode)
 
 		// Write response back to client
+		log.Printf("Compile endpoint returning: %+v", structuredResponse)
 		json.NewEncoder(w).Encode(structuredResponse)
 	}
 }
