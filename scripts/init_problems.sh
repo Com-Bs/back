@@ -10,7 +10,7 @@ elif [ -f ".env" ]; then
 fi
 
 # Connect to MongoDB with authentication and insert problems
-mongosh "mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@localhost:${MONGO_PORT}/compis?authSource=admin" << 'EOF'
+mongosh "mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/compis?authSource=admin" << 'EOF'
 
 // Drop existing collection
 db.problems.drop()

@@ -110,7 +110,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		req, err := http.NewRequest("POST", "https://10.49.12.48:3001/performTestCases", bytes.NewBuffer(compileReqBytes))
+		req, err := http.NewRequest("POST", "https://172.16.30.3:3001/performTestCases", bytes.NewBuffer(compileReqBytes))
 		req.Header.Set("Content-Type", "application/json")
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)

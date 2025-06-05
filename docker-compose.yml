@@ -12,6 +12,32 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - compis_network
+
+  init-problems:
+    image: mongodb/mongodb-community-server:latest
+    container_name: compis_init_problems
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_PORT: ${MONGO_PORT:-27017}
+    volumes:
+      - ./scripts:/scripts
+      - ./.env:/scripts/.env:ro
+    command: /bin/bash /scripts/init_problems.sh
+    working_dir: /scripts
+    networks:
+      - compis_network
 
 volumes:
   mongodb_data:
