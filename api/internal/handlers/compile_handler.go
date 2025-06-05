@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	model "learning_go/internal/models"
 	"log"
@@ -111,7 +110,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			return
 		}
 
-		req, err := http.NewRequest("POST", "https://10.49.12.48:3001/runCompile", bytes.NewBuffer(compileReqBytes))
+		req, err := http.NewRequest("POST", "https://10.49.12.48:3001/performTestCases", bytes.NewBuffer(compileReqBytes))
 		req.Header.Set("Content-Type", "application/json")
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
@@ -139,11 +138,12 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 
 		var response struct {
-			Outputs []int  `json:"outputs"`
-			Error   string `json:"error"`
-			Message string `json:"message"`
-			Line    int    `json:"line"`
-			Column  int    `json:"column"`
+			Results []struct {
+				Output int    `json:"output"`
+				Error  string `json:"error"`
+				Line   int    `json:"line"`
+				Column int    `json:"column"`
+			} `json:"results"`
 		}
 
 		if err := json.Unmarshal(respBody, &response); err != nil {
@@ -152,27 +152,65 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 
 		var structuredResponse model.CompileResponse
-		if response.Error != "" {
-			log.Printf("Compile service returned an error: %s", response.Error)
-			errorMessage := response.Error
-			if response.Message != "" {
-				errorMessage = fmt.Sprintf("%s: %s", response.Error, response.Message)
+		// Actual response 
+		log.Printf("Compile service response: %+v", response)
+
+		// Process all test results
+		var results []model.CompileResults
+		var firstError string
+		var firstErrorLine, firstErrorColumn int
+		hasError := false
+		
+		for i, result := range response.Results {
+			// Check for compilation error
+			if result.Error != "" {
+				if !hasError {
+					hasError = true
+					firstError = result.Error
+					firstErrorLine = result.Line
+					firstErrorColumn = result.Column
+				}
+				results = append(results, model.CompileResults{
+					Status: "Failed",
+					Output: []int{result.Output},
+					ExpectedOutput: []int{},
+				})
+				continue
 			}
-			structuredResponse = model.CompileResponse{
-				Error:  errorMessage,
-				Line:   response.Line,
-				Column: response.Column,
-				Status: "Error",
+			
+			// Compare with expected output
+			expectedOutput := 0
+			if i < len(problem.TestCases) {
+				if val, err := strconv.Atoi(problem.TestCases[i].Output); err == nil {
+					expectedOutput = val
+				}
 			}
-		} else {
-			// For now, create a simple success response
-			// TODO: Update GenerateResponse to handle TestCase structures
-			structuredResponse = model.CompileResponse{
-				Error:  "",
-				Status: "Success",
-				Line:   response.Line,
-				Column: response.Column,
+			
+			status := "Failed"
+			if result.Output == expectedOutput {
+				status = "Success"
+			} else {
+				hasError = true
 			}
+			
+			results = append(results, model.CompileResults{
+				Status: status,
+				Output: []int{result.Output},
+				ExpectedOutput: []int{expectedOutput},
+			})
+		}
+		
+		// Build response
+		structuredResponse = model.CompileResponse{
+			Result: results,
+			Error:  firstError,
+			Status: "Success",
+			Line:   firstErrorLine,
+			Column: firstErrorColumn,
+		}
+		
+		if hasError {
+			structuredResponse.Status = "Error"
 		}
 
 		// Cache successful responses
@@ -186,7 +224,6 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		w.WriteHeader(resp.StatusCode)
 
 		// Write response back to client
-		log.Printf("Compile endpoint returning: %+v", structuredResponse)
 		json.NewEncoder(w).Encode(structuredResponse)
 	}
 }
