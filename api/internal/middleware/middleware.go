@@ -11,13 +11,15 @@ import (
 	"net/http"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Custom response writer that captures the status code
+// Custom response writer that captures the status code and response body
 type responseWriter struct {
 	http.ResponseWriter
-	statusCode int
+	statusCode   int
+	responseBody []byte
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
@@ -25,14 +27,22 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
+func (rw *responseWriter) Write(data []byte) (int, error) {
+	// Capture response body
+	rw.responseBody = append(rw.responseBody, data...)
+	return rw.ResponseWriter.Write(data)
+}
+
 // Context key for username
 type contextKey string
 
 const (
-	usernameKey contextKey = "username"
+	UsernameKey contextKey = "username" // Exported for use in handlers
 	bodyKey     contextKey = "body"
 	fullBody    contextKey = "fullBody"
 )
+
+const usernameKey = UsernameKey
 
 // BodyCaptureMiddleware captures the request body and makes it available in the context
 func BodyCaptureMiddleware(next http.Handler) http.Handler {
@@ -97,15 +107,26 @@ func DBLoggingMiddleware(db *mongo.Database) func(http.Handler) http.Handler {
 			}
 
 			if r.URL.Path != "/logIn" && r.URL.Path != "/signUp" {
-				// Get code from original request body
+				// Get code and problemId from original request body
 				if bodyBytes, ok := r.Context().Value(fullBody).([]byte); ok {
 					var body struct {
-						Code string `json:"code"`
+						Code      string `json:"code"`
+						ProblemID string `json:"problemId"`
 					}
 					if err := json.Unmarshal(bodyBytes, &body); err == nil {
 						logEntry.Body = body.Code
+						// Store problemId if this is a compile request
+						if r.URL.Path == "/compile" && body.ProblemID != "" {
+							if problemObjectID, err := primitive.ObjectIDFromHex(body.ProblemID); err == nil {
+								logEntry.Problem = problemObjectID
+							}
+						}
 					}
-					logEntry.ResponseStatus = rw.statusCode
+				}
+				logEntry.ResponseStatus = rw.statusCode
+				// Store response body for compile requests
+				if r.URL.Path == "/compile" && len(rw.responseBody) > 0 {
+					logEntry.ResponseBody = string(rw.responseBody)
 				}
 			}
 
@@ -120,8 +141,7 @@ func DBLoggingMiddleware(db *mongo.Database) func(http.Handler) http.Handler {
 				return
 			}
 
-			log.Printf("Request completed: %v", logEntry)
-		})
+			})
 	}
 }
 

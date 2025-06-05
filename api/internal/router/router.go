@@ -44,8 +44,9 @@ func NewWithDB(db *mongo.Database) http.Handler {
 	// POST method for code compilation
 	r.Handle("POST /compile", Chain(
 		handler.GetFullCompile(db),
-		middleware.AuthenticateMiddleware,  // Verifies JWT token
-		middleware.DBLoggingMiddleware(db), // Logs the request
+		middleware.AuthenticateMiddleware,        // Verifies JWT token
+		middleware.RepeatedRequestMiddleware(db), // Captures request body
+		middleware.DBLoggingMiddleware(db),       // Logs the request
 	))
 
 	// Problem routes
@@ -58,6 +59,12 @@ func NewWithDB(db *mongo.Database) http.Handler {
 	// GET method for retrieving a specific problem by ID
 	r.Handle("GET /problems/{id}", Chain(
 		handler.GetProblemByID(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
+	))
+
+	// GET method for retrieving user's solutions for a specific problem
+	r.Handle("GET /problems/{id}/solutions", Chain(
+		handler.GetUserSolutions(db),
 		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 

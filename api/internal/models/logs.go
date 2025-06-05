@@ -2,11 +2,14 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Logs struct {
@@ -25,6 +28,8 @@ type Logs struct {
 	// Duration is the time taken to process the request
 	Body string `bson:"body"`
 	// Body is the request body, typically a JSON string
+	ResponseBody string `bson:"response_body,omitempty"`
+	// ResponseBody is the response body from the compile service
 	Problem primitive.ObjectID `bson:"case,omitempty"`
 	// Problem is the ID of the problem associated with the log entry
 	IP string `bson:"ip"`
@@ -115,4 +120,103 @@ func (ls *LogsService) GetLogByHash(ctx context.Context, hash string) (*Logs, er
 		return nil, err
 	}
 	return &log, nil
+}
+
+// UserSolution represents a user's solution attempt from logs
+type UserSolution struct {
+	ID           string    `json:"id"`
+	ProblemID    string    `json:"problemId"`
+	UserID       string    `json:"userId"`
+	Code         string    `json:"code"`
+	Status       string    `json:"status"`
+	SubmittedAt  string    `json:"submittedAt"`
+	ExecutionTime string  `json:"executionTime"`
+}
+
+// GetUserSolutionsByProblem retrieves user's compile attempts for a specific problem
+func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, problemID string) ([]*UserSolution, error) {
+	problemObjectID, err := primitive.ObjectIDFromHex(problemID)
+	if err != nil {
+		return nil, err
+	}
+
+	filter := bson.M{
+		"user_id": userID,
+		"path":    "/compile",
+		"case":    problemObjectID,
+	}
+
+	// Sort by creation time (newest first)
+	opts := options.Find().SetSort(bson.D{{"created_at", -1}})
+	
+	cursor, err := ls.Collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var solutions []*UserSolution
+	for cursor.Next(ctx) {
+		var logEntry Logs
+		if err := cursor.Decode(&logEntry); err != nil {
+			continue // Skip invalid entries
+		}
+
+		// Convert log entry to UserSolution
+		solution := &UserSolution{
+			ID:        logEntry.ID.Hex(),
+			ProblemID: problemID,
+			UserID:    userID,
+			Code:      logEntry.Body,
+			SubmittedAt: logEntry.CreatedAt.Format(time.RFC3339),
+			ExecutionTime: logEntry.Duration.String(),
+		}
+
+		// Determine status based on response body
+		if logEntry.ResponseBody != "" {
+			// Parse the compile response to determine actual status
+			var compileResponse struct {
+				Result []struct {
+					Status string `json:"status"`
+				} `json:"result"`
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			}
+			
+			if err := json.Unmarshal([]byte(logEntry.ResponseBody), &compileResponse); err == nil {
+				// Check if there's a compilation error
+				if compileResponse.Error != "" {
+					solution.Status = "failed"
+				} else if compileResponse.Status == "Error" {
+					solution.Status = "failed"
+				} else if compileResponse.Status == "Success" {
+					// Check if all test cases passed
+					allPassed := true
+					for _, result := range compileResponse.Result {
+						if result.Status != "Success" {
+							allPassed = false
+							break
+						}
+					}
+					if allPassed {
+						solution.Status = "passed"
+					} else {
+						solution.Status = "partial"
+					}
+				} else {
+					solution.Status = "partial"
+				}
+			} else {
+				// Default to failed if response parsing fails
+				solution.Status = "failed"
+			}
+		} else {
+			// Default to failed if no response body
+			solution.Status = "failed"
+		}
+
+		solutions = append(solutions, solution)
+	}
+
+	return solutions, nil
 }
