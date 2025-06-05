@@ -168,15 +168,3 @@ func GetLogs(db *mongo.Database) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
-
-// Default GET function
-func CreateLogs(db *mongo.Database) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate HTTP method
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-	}
-}

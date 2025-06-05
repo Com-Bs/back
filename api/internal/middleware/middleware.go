@@ -31,6 +31,7 @@ type contextKey string
 const (
 	usernameKey contextKey = "username"
 	bodyKey     contextKey = "body"
+	fullBody    contextKey = "fullBody"
 )
 
 // BodyCaptureMiddleware captures the request body and makes it available in the context
@@ -95,6 +96,19 @@ func DBLoggingMiddleware(db *mongo.Database) func(http.Handler) http.Handler {
 				CreatedAt:      time.Now(),
 			}
 
+			if r.URL.Path != "/logIn" && r.URL.Path != "/signUp" {
+				// Get code from original request body
+				if bodyBytes, ok := r.Context().Value(fullBody).([]byte); ok {
+					var body struct {
+						Code string `json:"code"`
+					}
+					if err := json.Unmarshal(bodyBytes, &body); err == nil {
+						logEntry.Body = body.Code
+					}
+					logEntry.ResponseStatus = rw.statusCode
+				}
+			}
+
 			ctx := context.Background()
 			logService := model.NewLogsService(db)
 
@@ -150,6 +164,11 @@ func RepeatedRequestMiddleware(db *mongo.Database) func(http.Handler) http.Handl
 			// Read and hash the request body
 			bodyBytes, err := io.ReadAll(r.Body)
 			if err == nil {
+
+				// store the body in context for later use
+				ctx := context.WithValue(r.Context(), fullBody, bodyBytes)
+				r = r.WithContext(ctx)
+
 				// Restore the body for the next handler
 				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
