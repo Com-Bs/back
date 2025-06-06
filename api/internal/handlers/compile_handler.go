@@ -22,8 +22,8 @@ type compileBody struct {
 }
 
 type compileRequest struct {
-	Program   string      `json:"program"`
-	FunName   string      `json:"funName"`
+	Program   string          `json:"program"`
+	FunName   string          `json:"funName"`
 	TestCases [][]interface{} `json:"testCases"`
 }
 
@@ -85,7 +85,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 					inputParams = append(inputParams, input)
 				}
 			}
-			
+
 			// Create test case with just inputs (no expected output)
 			transformedTestCases = append(transformedTestCases, inputParams)
 		}
@@ -113,7 +113,11 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		req, err := http.NewRequest("POST", "https://172.16.30.3:3001/performTestCases", bytes.NewBuffer(compileReqBytes))
 		req.Header.Set("Content-Type", "application/json")
 		if err != nil {
-			http.Error(w, "Failed to create request", http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Failed to create request",
+			})
 			return
 		}
 
@@ -124,7 +128,11 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		// Send request
 		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, "Compile service unavailable", http.StatusServiceUnavailable)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Compile service unavailable",
+			})
 			return
 		}
 
@@ -133,7 +141,11 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		// Read response body
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			http.Error(w, "Failed to read response", http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Failed to read response",
+			})
 			return
 		}
 
@@ -152,7 +164,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		}
 
 		var structuredResponse model.CompileResponse
-		// Actual response 
+		// Actual response
 		log.Printf("Compile service response: %+v", response)
 
 		// Process all test results
@@ -160,7 +172,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 		var firstError string
 		var firstErrorLine, firstErrorColumn int
 		hasError := false
-		
+
 		for i, result := range response.Results {
 			// Check for compilation error
 			if result.Error != "" {
@@ -171,13 +183,13 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 					firstErrorColumn = result.Column
 				}
 				results = append(results, model.CompileResults{
-					Status: "Failed",
-					Output: []int{result.Output},
+					Status:         "Failed",
+					Output:         []int{result.Output},
 					ExpectedOutput: []int{},
 				})
 				continue
 			}
-			
+
 			// Compare with expected output
 			expectedOutput := 0
 			if i < len(problem.TestCases) {
@@ -185,21 +197,21 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 					expectedOutput = val
 				}
 			}
-			
+
 			status := "Failed"
 			if result.Output == expectedOutput {
 				status = "Success"
 			} else {
 				hasError = true
 			}
-			
+
 			results = append(results, model.CompileResults{
-				Status: status,
-				Output: []int{result.Output},
+				Status:         status,
+				Output:         []int{result.Output},
 				ExpectedOutput: []int{expectedOutput},
 			})
 		}
-		
+
 		// Build response
 		structuredResponse = model.CompileResponse{
 			Result: results,
@@ -208,7 +220,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			Line:   firstErrorLine,
 			Column: firstErrorColumn,
 		}
-		
+
 		if hasError {
 			structuredResponse.Status = "Error"
 		}
