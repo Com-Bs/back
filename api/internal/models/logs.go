@@ -124,13 +124,13 @@ func (ls *LogsService) GetLogByHash(ctx context.Context, hash string) (*Logs, er
 
 // UserSolution represents a user's solution attempt from logs
 type UserSolution struct {
-	ID           string    `json:"id"`
-	ProblemID    string    `json:"problemId"`
-	UserID       string    `json:"userId"`
-	Code         string    `json:"code"`
-	Status       string    `json:"status"`
-	SubmittedAt  string    `json:"submittedAt"`
-	ExecutionTime string  `json:"executionTime"`
+	ID            string `json:"id"`
+	ProblemID     string `json:"problemId"`
+	UserID        string `json:"userId"`
+	Code          string `json:"code"`
+	Status        string `json:"status"`
+	SubmittedAt   string `json:"submittedAt"`
+	ExecutionTime string `json:"executionTime"`
 }
 
 // GetUserSolutionsByProblem retrieves user's compile attempts for a specific problem
@@ -148,7 +148,7 @@ func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, pr
 
 	// Sort by creation time (newest first)
 	opts := options.Find().SetSort(bson.D{{"created_at", -1}})
-	
+
 	cursor, err := ls.Collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
@@ -164,11 +164,11 @@ func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, pr
 
 		// Convert log entry to UserSolution
 		solution := &UserSolution{
-			ID:        logEntry.ID.Hex(),
-			ProblemID: problemID,
-			UserID:    userID,
-			Code:      logEntry.Body,
-			SubmittedAt: logEntry.CreatedAt.Format(time.RFC3339),
+			ID:            logEntry.ID.Hex(),
+			ProblemID:     problemID,
+			UserID:        userID,
+			Code:          logEntry.Body,
+			SubmittedAt:   logEntry.CreatedAt.Format(time.RFC3339),
 			ExecutionTime: logEntry.Duration.String(),
 		}
 
@@ -186,7 +186,7 @@ func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, pr
 				Line   int    `json:"line"`
 				Column int    `json:"column"`
 			}
-			
+
 			if err := json.Unmarshal([]byte(logEntry.ResponseBody), &compileResponse); err == nil {
 				// Check if there's a compilation error (syntax error, etc.)
 				if compileResponse.Error != "" {
@@ -195,13 +195,98 @@ func (ls *LogsService) GetUserSolutionsByProblem(ctx context.Context, userID, pr
 					// Count passed and failed test cases
 					passedCount := 0
 					totalCount := len(compileResponse.Result)
-					
+
 					for _, result := range compileResponse.Result {
 						if result.Status == "Success" {
 							passedCount++
 						}
 					}
-					
+
+					if passedCount == 0 {
+						solution.Status = "failed"
+					} else if passedCount == totalCount {
+						solution.Status = "passed"
+					} else {
+						solution.Status = "partial"
+					}
+				}
+			} else {
+				// Default to failed if response parsing fails
+				solution.Status = "failed"
+			}
+		} else {
+			// Default to failed if no response body
+			solution.Status = "failed"
+		}
+
+		solutions = append(solutions, solution)
+	}
+
+	return solutions, nil
+}
+
+func (ls *LogsService) GetAllUserSolutions(ctx context.Context, userID string) ([]*UserSolution, error) {
+	filter := bson.M{
+		"user_id": userID,
+		"path":    "/compile",
+	}
+
+	// Sort by creation time (newest first)
+	opts := options.Find().SetSort(bson.D{{"created_at", -1}})
+
+	cursor, err := ls.Collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var solutions []*UserSolution
+	for cursor.Next(ctx) {
+		var logEntry Logs
+		if err := cursor.Decode(&logEntry); err != nil {
+			continue // Skip invalid entries
+		}
+
+		// Convert log entry to UserSolution
+		solution := &UserSolution{
+			ID:            logEntry.ID.Hex(),
+			ProblemID:     logEntry.Problem.Hex(),
+			UserID:        userID,
+			Code:          logEntry.Body,
+			SubmittedAt:   logEntry.CreatedAt.Format(time.RFC3339),
+			ExecutionTime: logEntry.Duration.String(),
+		}
+
+		// Determine status based on response body
+		if logEntry.ResponseBody != "" {
+			// Parse the compile response to determine actual status
+			var compileResponse struct {
+				Result []struct {
+					Status         string `json:"status"`
+					Output         []int  `json:"output"`
+					ExpectedOutput []int  `json:"expectedOutput"`
+				} `json:"result"`
+				Status string `json:"status"`
+				Error  string `json:"error"`
+				Line   int    `json:"line"`
+				Column int    `json:"column"`
+			}
+
+			if err := json.Unmarshal([]byte(logEntry.ResponseBody), &compileResponse); err == nil {
+				// Check if there's a compilation error (syntax error, etc.)
+				if compileResponse.Error != "" {
+					solution.Status = "failed"
+				} else {
+					// Count passed and failed test cases
+					passedCount := 0
+					totalCount := len(compileResponse.Result)
+
+					for _, result := range compileResponse.Result {
+						if result.Status == "Success" {
+							passedCount++
+						}
+					}
+
 					if passedCount == 0 {
 						solution.Status = "failed"
 					} else if passedCount == totalCount {
