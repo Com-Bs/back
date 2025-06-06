@@ -57,9 +57,11 @@ func (us *UserService) CreateUser(ctx context.Context, username, email, password
 
 	// Check if user already exists
 	existingUser, err := us.GetUserByUsername(ctx, username)
-	if err != nil {
+	if err != nil && err.Error() != "user not found" {
 		return nil, err
-	}else if existingUser != nil {
+	}
+	
+	if existingUser != nil {
 		return nil, errors.New("user already exists")
 	}
 
