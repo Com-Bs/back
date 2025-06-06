@@ -68,5 +68,10 @@ func NewWithDB(db *mongo.Database) http.Handler {
 		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 
+	r.Handle("GET /allsolutions", Chain(
+		handler.GetAllUserSolutions(db),
+		middleware.AuthenticateMiddleware, // Verifies JWT token
+	))
+
 	return middleware.CORSMiddleware(r)
 }
