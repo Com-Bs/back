@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"learning_go/internal/database"
 	model "learning_go/internal/models"
 	"log"
@@ -48,10 +49,13 @@ func main() {
 	// Create router with database connection
 	r := router.NewWithDB(db.Database)
 
-	// Start server
+	// Start server with TLS config that accepts self-signed certificates
 	srv := &http.Server{
-		Addr:    ":8443", // Changed port to standard HTTPS port
+		Addr:    ":8443",
 		Handler: r,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true, // Accept self-signed certificates from clients
+		},
 	}
 
 	// Start server in goroutine
