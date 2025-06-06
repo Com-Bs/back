@@ -1,13 +1,14 @@
 package cache
 
 import (
+	model "learning_go/internal/models"
 	"sync"
 	"time"
 )
 
 // CompileCacheEntry represents a cached compile request and its response
 type CompileCacheEntry struct {
-	ResponseBody []byte
+	ResponseBody model.CompileResponse
 	StatusCode   int
 	CreatedAt    time.Time
 }
@@ -51,7 +52,7 @@ func (c *CompileCache) Get(hash string) (*CompileCacheEntry, bool) {
 }
 
 // Set stores a response in the cache
-func (c *CompileCache) Set(hash string, responseBody []byte, statusCode int) {
+func (c *CompileCache) Set(hash string, responseBody model.CompileResponse, statusCode int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

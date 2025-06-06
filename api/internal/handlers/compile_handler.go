@@ -57,7 +57,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 			log.Printf("Cache hit for compile request: %s", hashStr)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(cached.StatusCode)
-			w.Write(cached.ResponseBody)
+			json.NewEncoder(w).Encode(cached.ResponseBody)
 			return
 		}
 
@@ -227,7 +227,7 @@ func GetFullCompile(db *mongo.Database) http.HandlerFunc {
 
 		// Cache successful responses
 		if resp.StatusCode == http.StatusOK {
-			compileCache.Set(hashStr, respBody, resp.StatusCode)
+			compileCache.Set(hashStr, structuredResponse, resp.StatusCode)
 			log.Printf("Cached compile response for request: %s", hashStr)
 		}
 
