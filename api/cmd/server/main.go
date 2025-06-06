@@ -51,7 +51,7 @@ func main() {
 
 	// Start server with TLS config that accepts self-signed certificates
 	srv := &http.Server{
-		Addr:    ":8443",
+		Addr:    ":8080",
 		Handler: r,
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true, // Accept self-signed certificates from clients
@@ -60,7 +60,7 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Println("Starting HTTPS server on :8443")
+		log.Println("Starting HTTPS server on :8080")
 		if err := srv.ListenAndServeTLS("certs/server.crt", "certs/server.key"); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
