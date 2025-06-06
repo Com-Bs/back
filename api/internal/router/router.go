@@ -68,5 +68,5 @@ func NewWithDB(db *mongo.Database) http.Handler {
 		middleware.AuthenticateMiddleware, // Verifies JWT token
 	))
 
-	return r
+	return middleware.CORSMiddleware(r)
 }
