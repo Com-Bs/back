@@ -5,6 +5,7 @@ import (
 	"errors"
 	"learning_go/internal/auth"
 	"time"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -42,14 +43,24 @@ func NewUserService(db *mongo.Database) *UserService {
 
 // CreateUser stores a new user in the database
 func (us *UserService) CreateUser(ctx context.Context, username, email, password string) (*User, error) {
+	// validate email, username is validated in getUserByUsername
+	if !IsSanitized(email) {
+		return nil, errors.New("email contains invalid characters")
+	}
+	
 	// Hash the password
 	hashedPassword, err := auth.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
+
 	// Check if user already exists
-	existingUser, _ := us.GetUserByUsername(ctx, username)
+	existingUser, err := us.GetUserByUsername(ctx, username)
+	if err != nil && err.Error() != "user not found" {
+		return nil, err
+	}
+	
 	if existingUser != nil {
 		return nil, errors.New("user already exists")
 	}
@@ -73,8 +84,17 @@ func (us *UserService) CreateUser(ctx context.Context, username, email, password
 	return user, nil
 }
 
+func IsSanitized(s string) bool {
+	return !strings.ContainsAny(s, "<>\"'${}[]|\\^`")
+}
+
 // GetUserByUsername retrieves a user by username
 func (us *UserService) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	// Validate username
+	if !IsSanitized(username) {
+		return nil, errors.New("username contains invalid characters")
+	}
+	
 	var user User
 	filter := bson.M{"username": username}
 

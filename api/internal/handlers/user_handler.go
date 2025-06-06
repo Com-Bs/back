@@ -56,7 +56,16 @@ func SignUp(db *mongo.Database) http.HandlerFunc {
 				log.Printf("User already exists: %s", user.Username)
 				http.Error(w, "User already exists", http.StatusConflict)
 				return
+			} else if err.Error() == "username contains invalid characters" {
+				log.Printf("Invalid characters in username: %s", user.Username)
+				http.Error(w, "Username contains invalid characters", http.StatusBadRequest)
+				return
+			} else if err.Error() == "email contains invalid characters" {
+				log.Printf("Invalid characters in email: %s", user.Username)
+				http.Error(w, "email contains invalid characters", http.StatusBadRequest)
+				return
 			}
+
 			log.Printf("Failed to create user: %v", err)
 			http.Error(w, "Failed to create user", http.StatusInternalServerError)
 			return
@@ -105,7 +114,11 @@ func LogIn(db *mongo.Database) http.HandlerFunc {
 		userService := model.NewUserService(db)
 		dbUser, err := userService.GetUserByUsername(ctx, user.Username)
 		if err != nil {
-			http.Error(w, "User not found", http.StatusUnauthorized)
+			if err.Error() == "user not found" {
+				http.Error(w, "User not found", http.StatusUnauthorized)
+			} else {
+				http.Error(w, "Invalid characters in username", http.StatusBadRequest)
+			}
 			return
 		}
 
