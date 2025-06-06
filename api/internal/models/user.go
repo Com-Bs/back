@@ -5,6 +5,7 @@ import (
 	"errors"
 	"learning_go/internal/auth"
 	"time"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -48,6 +49,14 @@ func (us *UserService) CreateUser(ctx context.Context, username, email, password
 		return nil, err
 	}
 
+	// Validate username and email
+	if !IsSanitized(username) {
+		return nil, errors.New("username contains invalid characters")
+	}
+	if !IsSanitized(email) {
+		return nil, errors.New("email contains invalid characters")
+	}
+
 	// Check if user already exists
 	existingUser, _ := us.GetUserByUsername(ctx, username)
 	if existingUser != nil {
@@ -71,6 +80,10 @@ func (us *UserService) CreateUser(ctx context.Context, username, email, password
 	// Set the ID from the insert result
 	user.ID = result.InsertedID.(primitive.ObjectID)
 	return user, nil
+}
+
+func IsSanitized(s string) bool {
+	return !strings.ContainsAny(s, "<>\"'${}[]|\\^`")
 }
 
 // GetUserByUsername retrieves a user by username
