@@ -114,7 +114,10 @@ func LogIn(db *mongo.Database) http.HandlerFunc {
 		userService := model.NewUserService(db)
 		dbUser, err := userService.GetUserByUsername(ctx, user.Username)
 		if err != nil {
-			http.Error(w, "User not found", http.StatusUnauthorized)
+			if err.Error() == "user not found" {
+				http.Error(w, "User not found", http.StatusUnauthorized)
+			}
+			http.Error(w, "Invalid characters in username", http.StatusBadRequest)
 			return
 		}
 

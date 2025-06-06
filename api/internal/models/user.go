@@ -43,23 +43,23 @@ func NewUserService(db *mongo.Database) *UserService {
 
 // CreateUser stores a new user in the database
 func (us *UserService) CreateUser(ctx context.Context, username, email, password string) (*User, error) {
+	// validate email, username is validated in getUserByUsername
+	if !IsSanitized(email) {
+		return nil, errors.New("email contains invalid characters")
+	}
+	
 	// Hash the password
 	hashedPassword, err := auth.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate username and email
-	if !IsSanitized(username) {
-		return nil, errors.New("username contains invalid characters")
-	}
-	if !IsSanitized(email) {
-		return nil, errors.New("email contains invalid characters")
-	}
 
 	// Check if user already exists
-	existingUser, _ := us.GetUserByUsername(ctx, username)
-	if existingUser != nil {
+	existingUser, err := us.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}else if existingUser != nil {
 		return nil, errors.New("user already exists")
 	}
 
@@ -88,6 +88,11 @@ func IsSanitized(s string) bool {
 
 // GetUserByUsername retrieves a user by username
 func (us *UserService) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	// Validate username
+	if !IsSanitized(username) {
+		return nil, errors.New("username contains invalid characters")
+	}
+	
 	var user User
 	filter := bson.M{"username": username}
 
